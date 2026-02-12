@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Valentine v18.4 - Perfectly Synced</title>
+    <link href="https://fonts.googleapis.com/css2?family=Annie+Use+Your+Telescope&family=Shantell+Sans:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #ff4d6d;
+            --dark-pink: #ff0a54;
+            --bg-grad: radial-gradient(circle, #ffb6c1, #ff9a9e, #fad0c4);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Shantell Sans', cursive;
+            background: var(--bg-grad);
+            height: 100vh; width: 100vw; overflow: hidden;
+            display: flex; justify-content: center; align-items: center;
+        }
+
+        canvas#particle-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
+
+        .stage { display: none; flex-direction: column; align-items: center; width: 95%; max-width: 400px; z-index: 10; text-align: center; height: 100vh; justify-content: center; position: relative; }
+        .stage.active { display: flex; }
+
+        #lyric-display {
+            font-size: 1.4rem;
+            color: white;
+            text-shadow: 2px 2px 10px rgba(255, 10, 84, 0.6);
+            min-height: 5rem;
+            padding: 0 25px;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; line-height: 1.3;
+        }
+
+        .btn-container { display: flex; gap: 20px; margin-top: 20px; align-items: center; justify-content: center; min-height: 100px; width: 100%; }
+        button { padding: 15px 30px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; font-family: 'Shantell Sans'; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        #ready-btn, #yes-btn { background: var(--primary); color: white; box-shadow: 0 4px 15px rgba(255, 77, 109, 0.4); z-index: 10; font-size: 1.2rem; }
+        #no-btn { background: white; color: var(--primary); border: 2px solid var(--primary); position: relative; z-index: 100; }
+
+        /* Gallery/Slider/Envelope styles */
+        .heart-gallery { position: relative; width: 100%; height: 350px; display: flex; justify-content: center; align-items: center; margin: 20px 0; }
+        .mini-polaroid { position: absolute; width: 70px; height: 85px; background: white; padding: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); transition: all 0.7s cubic-bezier(0.175, 0.885, 0.32, 1.2); z-index: 5; left: 50%; top: 50%; margin-left: -35px; margin-top: -42px; }
+        .mini-polaroid img { width: 100%; height: 60px; object-fit: cover; }
+        .mini-polaroid p { font-size: 0.4rem; margin-top: 3px; font-weight: bold; color: #555; }
+        .mini-polaroid.zoomed { position: fixed !important; top: 50% !important; left: 50% !important; width: 280px; height: 340px; z-index: 5000 !important; transform: translate(-50%, -50%) rotate(0deg) scale(1) !important; margin: 0 !important; padding: 12px; }
+        .mini-polaroid.zoomed img { height: 260px; }
+        .mini-polaroid.zoomed p { font-size: 1rem; margin-top: 10px; }
+
+        .swipe-wrap { width: 90%; opacity: 0; transform: translateY(20px); transition: 1s; margin-top: 10px; pointer-events: none; }
+        .swipe-wrap.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+        .swipe-track { width: 100%; height: 55px; background: rgba(255,255,255,0.4); border-radius: 30px; position: relative; border: 2px solid white; overflow: hidden; }
+        .progress-fill { position: absolute; left: 0; height: 100%; background: var(--primary); width: 0%; border-radius: 30px; }
+        #heart-knob { position: absolute; left: 0; top: 0; width: 55px; height: 55px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; z-index: 20; cursor: grab; touch-action: none; }
+
+        .envelope-wrapper { position: relative; width: 280px; height: 200px; z-index: 10; margin-bottom: 20px; }
+        .envelope { width: 100%; height: 100%; background: var(--primary); position: relative; z-index: 5; cursor: pointer; border-radius: 0 0 10px 10px; }
+        .lid { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: var(--dark-pink); clip-path: polygon(0 0, 50% 60%, 100% 0); transform-origin: top; transition: 0.8s; z-index: 10; border-radius: 10px 10px 0 0; }
+        .envelope.open .lid { transform: rotateX(180deg); z-index: 1; }
+        .card-scroll-wrapper { position: fixed; top: 50%; left: 50%; width: 320px; height: 0; background: #fffdfd; transition: 1.2s; overflow-y: auto; z-index: 200; transform: translate(-50%, -50%); opacity: 0; visibility: hidden; border-radius: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .envelope.open + .card-scroll-wrapper { height: 550px; opacity: 1; visibility: visible; padding: 25px; }
+        
+        .scratch-box { position: relative; width: 220px; height: 100px; background: white; border-radius: 8px; overflow: hidden; margin: 20px auto; }
+        #scratch-canvas { position: absolute; inset: 0; z-index: 2; touch-action: none; }
+
+        @keyframes shake { 0% { transform: translateX(0); } 25% { transform: translateX(8px); } 50% { transform: translateX(-8px); } 100% { transform: translateX(0); } }
+    </style>
+</head>
+<body>
+
+<audio id="bg-music">
+    <source src="audio.mpeg" type="audio/mpeg">
+</audio> 
+
+<canvas id="particle-canvas"></canvas>
+
+<section id="stage-0" class="stage active">
+    <h1 style="color:white; font-size: 2.2rem; margin-bottom: 20px;">Hey you...</h1>
+    <div id="lyric-display"></div>
+    <div class="btn-container">
+        <button id="ready-btn">I'm Ready! ❤️</button>
+    </div>
+</section>
+
+<section id="stage-1" class="stage">
+    <h1 style="color:white; font-size: 2.2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">Will you be mine?</h1>
+    <div class="btn-container">
+        <button id="yes-btn">YES!</button>
+        <button id="no-btn">NO</button>
+    </div>
+</section>
+
+<section id="stage-2" class="stage">
+    <h3 style="color:white; margin-bottom: 10px; font-size: 1.5rem;">Our Memories</h3>
+    <div class="heart-gallery" id="heart-gallery"></div>
+    <div class="swipe-wrap" id="swipe-wrap">
+        <p style="color:white; font-size: 0.9rem; margin-bottom: 8px;">Tap photos | Slide to open</p>
+        <div class="swipe-track" id="track">
+            <div class="progress-fill" id="fill"></div>
+            <div id="heart-knob">❤️</div>
+        </div>
+    </div>
+</section>
+
+<section id="stage-3" class="stage">
+    <div class="envelope-wrapper">
+        <div class="envelope" id="envelope"><div class="lid"></div></div>
+        <div class="card-scroll-wrapper">
+            <div style="font-family: 'Annie Use Your Telescope'; font-size: 1.5rem; text-align: left; line-height: 1.4;">
+                <h2 style="color:var(--primary); font-family:'Shantell Sans'; margin-bottom: 10px;">My Dear Love,</h2>
+                From the moment you walked into my life, everything began to feel softer, warmer, and more meaningful. You have this quiet magic about you — the way you smile, the way you care, the way you simply exist — it touches parts of my heart I never knew were waiting to be awakened.<br><br>
+                <div class="scratch-box">
+                    <div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: white;">
+                        <span class="secret-value">Ich Liebe Dich</span>
+                    </div>
+                    <canvas id="scratch-canvas"></canvas>
+                </div>
+                <p style="text-align:center; font-size: 0.9rem; color: #ff8fa3;">(Scratch to reveal!)</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+    // --- FINAL SYNCED LYRICS ---
+    const lyrics = [
+        {time: 0.00, text: "I don't know how to say this" },
+        {time: 4.00, text: "But" },
+        {time: 7.00, text: "I think you should know this" },
+        { time: 9.72, text: "They say, you know when you know" },
+        { time: 16.90, text: "So let's face it, you had me at hello" },
+        { time: 25.31, text: "Hesitation never helps" },
+        { time: 28.23, text: "How could this be anything, anything else?" },
+        { time: 32.93, text: "When all I dream of is your eyes" },
+        { time: 37.29, text: "All I long for is your touch" },
+        { time: 41.03, text: "And, darlin', something tells me that's enough, mm" },
+        { time: 48.56, text: "You can say that I'm a fool" },
+        { time: 51.96, text: "And I don't know very much" },
+        { time: 55.18, text: "But I think they call this love" },
+        {time: 63.00, text: ""}
+    ];
+
+    const music = document.getElementById('bg-music');
+    const lyricBox = document.getElementById('lyric-display');
+
+    // --- Particle System ---
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    let particles = [];
+    const res = () => { pCanvas.width = window.innerWidth; pCanvas.height = window.innerHeight; };
+    window.addEventListener('resize', res); res();
+
+    class P { 
+        constructor() { this.reset(); } 
+        reset() { 
+            this.x = Math.random() * pCanvas.width; this.y = pCanvas.height + 20; 
+            this.s = Math.random() * 15 + 10; this.v = Math.random() * 1.5 + 0.5;
+            this.type = Math.random() > 0.4 ? '💌' : '💗'; this.opacity = Math.random() * 0.5 + 0.5;
+        } 
+        update() { this.y -= this.v; if(this.y < -20) this.reset(); } 
+        draw() { pCtx.globalAlpha = this.opacity; pCtx.font = `${this.s}px serif`; pCtx.fillText(this.type, this.x, this.y); } 
+    }
+    for(let i=0; i<100; i++) particles.push(new P());
+    function loop() { pCtx.clearRect(0,0,pCanvas.width,pCanvas.height); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(loop); }
+    loop();
+
+    // --- Intro & Lyric Logic ---
+    document.getElementById('ready-btn').onclick = function() {
+        this.parentElement.style.display = 'none';
+        document.querySelector('#stage-0 h1').style.display = 'none';
+        music.play();
+        
+        const syncLyrics = setInterval(() => {
+            const currentTime = music.currentTime;
+            const currentLine = lyrics.filter(l => currentTime >= l.time).pop();
+            
+            if (currentLine) {
+                if (lyricBox.innerText !== currentLine.text) {
+                    lyricBox.style.opacity = 0;
+                    lyricBox.style.transform = "translateY(10px)";
+                    setTimeout(() => {
+                        lyricBox.innerText = currentLine.text;
+                        lyricBox.style.opacity = 1;
+                        lyricBox.style.transform = "translateY(0)";
+                    }, 300);
+                }
+            }
+
+            // Transitions to "Will you be mine?" at 59 seconds (just after last line)
+            if (currentTime >= 64.00) { 
+                clearInterval(syncLyrics);
+                nextStage(1);
+            }
+        }, 100);
+    };
+
+    // --- Standard Stage Transitions & Stage 1 ---
+    const noBtn = document.getElementById('no-btn');
+    const handleNo = (e) => {
+        e.preventDefault();
+        noBtn.style.animation = 'shake 0.4s';
+        const maxX = window.innerWidth - noBtn.offsetWidth - 20;
+        const maxY = window.innerHeight - noBtn.offsetHeight - 20;
+        noBtn.style.position = 'fixed';
+        noBtn.style.left = Math.random() * maxX + 'px';
+        noBtn.style.top = Math.random() * maxY + 'px';
+        setTimeout(() => { noBtn.style.animation = ''; }, 400);
+    };
+    noBtn.onclick = handleNo;
+    document.getElementById('yes-btn').onclick = () => nextStage(2);
+
+    function nextStage(n) {
+        document.querySelectorAll('.stage').forEach(s => s.classList.remove('active'));
+        document.getElementById(`stage-${n}`).classList.add('active');
+        if(n===2) formHeartShowcase();
+    }
+
+    // --- Stage 2: Heart Gallery ---
+    const imgSources = ["1.jpeg", "2.jpeg", "3.jpeg", "4.jpeg", "5.jpeg", "8.jpeg", "7.jpeg", "6.jpeg", "9.jpeg", "10.jpeg"];
+    const captions = ["You are magic ✨", "Those eyes... 😍", "My favorite person", "Laughing with you", "Always yours", "Forever us", "Pure happiness", "My home 🏠", "I'm so lucky", "My everything 💗"];
+    const heartPattern = [{x:-55,y:-90},{x:55,y:-90},{x:-95,y:-35},{x:-32,y:-35},{x:32,y:-35},{x:95,y:-35},{x:-65,y:30},{x:0,y:30},{x:65,y:30},{x:0,y:95}];
+
+    async function formHeartShowcase() {
+        const gallery = document.getElementById('heart-gallery');
+        for (let i = 0; i < imgSources.length; i++) {
+            const div = document.createElement('div');
+            div.className = 'mini-polaroid';
+            div.innerHTML = `<img src="${imgSources[i]}"><p>${captions[i]}</p>`;
+            gallery.appendChild(div);
+            await new Promise(r => setTimeout(r, 100));
+            div.style.transform = "scale(2.8)"; div.style.zIndex = "1000";
+            await new Promise(r => setTimeout(r, 1200));
+            const p = heartPattern[i];
+            div.style.transform = `translate(${p.x}px, ${p.y}px) scale(1) rotate(${(Math.random()-0.5)*20}deg)`;
+            div.style.zIndex = "5";
+            div.dataset.orig = div.style.transform;
+            div.onclick = () => {
+                if(div.classList.contains('zoomed')) { div.classList.remove('zoomed'); div.style.transform = div.dataset.orig; }
+                else { 
+                    document.querySelectorAll('.mini-polaroid.zoomed').forEach(z => {z.classList.remove('zoomed'); z.style.transform = z.dataset.orig;});
+                    div.classList.add('zoomed'); 
+                }
+            };
+        }
+        setTimeout(() => { document.getElementById('swipe-wrap').classList.add('show'); initSlider(); }, 800);
+    }
+
+    // --- Stage 2: Slider ---
+    function initSlider() {
+        const knob = document.getElementById('heart-knob'), fill = document.getElementById('fill'), track = document.getElementById('track');
+        let dragging = false;
+        const move = (e) => {
+            if(!dragging) return;
+            const x = (e.touches ? e.touches[0].clientX : e.clientX) - track.getBoundingClientRect().left - 27;
+            let p = Math.max(0, Math.min(x / (track.offsetWidth - 55), 1));
+            knob.style.left = (p * (track.offsetWidth - 55)) + 'px';
+            fill.style.width = (p * 100) + '%';
+            if(p > 0.98) { dragging = false; nextStage(3); }
+        };
+        knob.onmousedown = () => dragging = true;
+        knob.ontouchstart = () => dragging = true;
+        window.onmousemove = move; window.ontouchmove = move;
+        window.onmouseup = () => dragging = false; window.ontouchend = () => dragging = false;
+    }
+
+    // --- Stage 3: Envelope & Scratch ---
+    document.getElementById('envelope').onclick = function() { 
+        this.classList.add('open'); 
+        setTimeout(initScratch, 600);
+    };
+
+    function initScratch() {
+        const canvas = document.getElementById('scratch-canvas');
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight;
+        ctx.fillStyle = '#d3d3d3'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        const scratch = (x, y) => {
+            const r = canvas.getBoundingClientRect();
+            ctx.globalCompositeOperation = 'destination-out';
+            ctx.beginPath(); ctx.arc(x - r.left, y - r.top, 20, 0, Math.PI*2); ctx.fill();
+        };
+        canvas.onmousemove = (e) => { if(e.buttons === 1) scratch(e.clientX, e.clientY); };
+        canvas.ontouchmove = (e) => { scratch(e.touches[0].clientX, e.touches[0].clientY); };
+    }
+</script>
+</body>
+</html>
